@@ -1,5 +1,5 @@
-github.com/bahlo/generic-list-go v0.2.0 h1:5sz/EEAK+ls5wF+NeqDpk5+iNdMDXrh3z3nPnH1Wvgk=
-github.com/bahlo/generic-list-go v0.2.0/go.mod h1:2KvAjgMlE5NNynlg/5iLrrCCZ2+5xWbdbCW3pNTGyYg=
+github.com/PrismAIO/generic-list-go v0.0.0-20250727183647-845e92197bd5 h1:DiZ15fY001LO/tGDoD9UQWKwu7q8AnQF7YsvsV6LvOE=
+github.com/PrismAIO/generic-list-go v0.0.0-20250727183647-845e92197bd5/go.mod h1:/xZ87rUKC+urBY8fRFwLEd5d+WbQy24dmVBh+cQFh6M=
 github.com/buger/jsonparser v1.1.1 h1:2PnMjfWD7wBILjqQbt530v576A/cAbQvEW9gGIpYMUs=
 github.com/buger/jsonparser v1.1.1/go.mod h1:6RYKKt7H4d4+iWqouImQ9R2FZql3VbhNgx27UK13J/0=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=

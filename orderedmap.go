@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"iter"
 
-	list "github.com/bahlo/generic-list-go"
+	list "github.com/PrismAIO/generic-list-go"
 )
 
 type Pair[K comparable, V any] struct {
@@ -387,7 +387,7 @@ func From[K comparable, V any](i iter.Seq2[K, V]) *OrderedMap[K, V] {
 	return oMap
 }
 
-func (om *OrderedMap[K, V]) Filter(predicate func (K, V) bool) {
+func (om *OrderedMap[K, V]) Filter(predicate func(K, V) bool) {
 	for pair := om.Oldest(); pair != nil; {
 		key, value := pair.Key, pair.Value
 		pair = pair.Next()
@@ -395,4 +395,67 @@ func (om *OrderedMap[K, V]) Filter(predicate func (K, V) bool) {
 			om.Delete(key)
 		}
 	}
+}
+
+// InsertAfter inserts a key-value pair after the index key.
+// If the index key does not exist it will act as the Set function
+func (om *OrderedMap[K, V]) InsertAfter(indexKey, key K, value V) {
+	insertPair, present := om.pairs[indexKey]
+	if !present {
+		om.Set(key, value)
+		return
+	}
+
+	// If the key already exists, remove it from its current position first
+	if existingPair, exists := om.pairs[key]; exists {
+		om.list.Remove(existingPair.element)
+	}
+
+	pair := &Pair[K, V]{Key: key, Value: value}
+	pair.element = om.list.InsertAfter(pair, insertPair.element)
+	om.pairs[key] = pair
+}
+
+// InsertBefore inserts a key-value pair before the index key.
+// If the index key does not exist it will act as the Set function
+func (om *OrderedMap[K, V]) InsertBefore(indexKey, key K, value V) {
+	insertPair, present := om.pairs[indexKey]
+	if !present {
+		om.Set(key, value)
+		return
+	}
+
+	// If the key already exists, remove it from its current position first
+	if existingPair, exists := om.pairs[key]; exists {
+		om.list.Remove(existingPair.element)
+	}
+
+	pair := &Pair[K, V]{Key: key, Value: value}
+	pair.element = om.list.InsertBefore(pair, insertPair.element)
+	om.pairs[key] = pair
+}
+
+// Replace replaces the desired key and value in order at the same index as the index key.
+// If the index key does not exist, it will act as the Set function.
+func (om *OrderedMap[K, V]) Replace(indexKey, key K, value V) {
+	if indexKey == key {
+		om.Set(key, value)
+		return
+	}
+
+	replacePair, present := om.pairs[indexKey]
+	if !present {
+		om.Set(key, value)
+		return
+	}
+
+	if existingPair, exists := om.pairs[key]; exists {
+		om.list.Remove(existingPair.element)
+	}
+
+	newPair := &Pair[K, V]{Key: key, Value: value}
+	newPair.element = om.list.Replace(newPair, replacePair.element)
+	om.pairs[key] = newPair
+
+	delete(om.pairs, indexKey)
 }

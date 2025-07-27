@@ -499,18 +499,264 @@ func TestIteratorsFrom(t *testing.T) {
 
 func TestFilter(t *testing.T) {
 	om := New[int, int]()
-	
+
 	n := 10 * 3 // ensure divisibility by 3 for the length check below
 	for i := range n {
 		om.Set(i, i*i)
 	}
-	
+
 	om.Filter(func(k, v int) bool {
-		return k % 3 == 0
+		return k%3 == 0
 	})
-	
-	assert.Equal(t, n / 3, om.Len())
+
+	assert.Equal(t, n/3, om.Len())
 	for k := range om.FromOldest() {
-		assert.True(t, k%3==0)
+		assert.True(t, k%3 == 0)
 	}
+}
+
+func TestInsertAfter(t *testing.T) {
+	t.Run("insert after existing key", func(t *testing.T) {
+		om := New[int, string]()
+		om.Set(1, "one")
+		om.Set(2, "two")
+		om.Set(3, "three")
+
+		om.InsertAfter(2, 5, "five")
+
+		assertOrderedPairsEqual(t, om,
+			[]int{1, 2, 5, 3},
+			[]string{"one", "two", "five", "three"})
+	})
+
+	t.Run("insert after first key", func(t *testing.T) {
+		om := New[int, string]()
+		om.Set(1, "one")
+		om.Set(2, "two")
+
+		om.InsertAfter(1, 3, "three")
+
+		assertOrderedPairsEqual(t, om,
+			[]int{1, 3, 2},
+			[]string{"one", "three", "two"})
+	})
+
+	t.Run("insert after last key", func(t *testing.T) {
+		om := New[int, string]()
+		om.Set(1, "one")
+		om.Set(2, "two")
+
+		om.InsertAfter(2, 3, "three")
+
+		assertOrderedPairsEqual(t, om,
+			[]int{1, 2, 3},
+			[]string{"one", "two", "three"})
+	})
+
+	t.Run("insert after non-existent key acts as Set", func(t *testing.T) {
+		om := New[int, string]()
+		om.Set(1, "one")
+		om.Set(2, "two")
+
+		om.InsertAfter(99, 3, "three")
+
+		assertOrderedPairsEqual(t, om,
+			[]int{1, 2, 3},
+			[]string{"one", "two", "three"})
+	})
+
+	t.Run("insert after non-existent key in empty map", func(t *testing.T) {
+		om := New[int, string]()
+
+		om.InsertAfter(99, 1, "one")
+
+		assertOrderedPairsEqual(t, om,
+			[]int{1},
+			[]string{"one"})
+	})
+
+	t.Run("insert existing key after another key", func(t *testing.T) {
+		om := New[int, string]()
+		om.Set(1, "one")
+		om.Set(2, "two")
+		om.Set(3, "three")
+
+		om.InsertAfter(2, 1, "one_updated")
+
+		assertOrderedPairsEqual(t, om,
+			[]int{2, 1, 3},
+			[]string{"two", "one_updated", "three"})
+	})
+}
+
+func TestInsertBefore(t *testing.T) {
+	t.Run("insert before existing key", func(t *testing.T) {
+		om := New[int, string]()
+		om.Set(1, "one")
+		om.Set(2, "two")
+		om.Set(3, "three")
+
+		om.InsertBefore(3, 5, "five")
+
+		assertOrderedPairsEqual(t, om,
+			[]int{1, 2, 5, 3},
+			[]string{"one", "two", "five", "three"})
+	})
+
+	t.Run("insert before first key", func(t *testing.T) {
+		om := New[int, string]()
+		om.Set(1, "one")
+		om.Set(2, "two")
+
+		om.InsertBefore(1, 3, "three")
+
+		assertOrderedPairsEqual(t, om,
+			[]int{3, 1, 2},
+			[]string{"three", "one", "two"})
+	})
+
+	t.Run("insert before last key", func(t *testing.T) {
+		om := New[int, string]()
+		om.Set(1, "one")
+		om.Set(2, "two")
+
+		om.InsertBefore(2, 3, "three")
+
+		assertOrderedPairsEqual(t, om,
+			[]int{1, 3, 2},
+			[]string{"one", "three", "two"})
+	})
+
+	t.Run("insert before non-existent key acts as Set", func(t *testing.T) {
+		om := New[int, string]()
+		om.Set(1, "one")
+		om.Set(2, "two")
+
+		om.InsertBefore(99, 3, "three")
+
+		assertOrderedPairsEqual(t, om,
+			[]int{1, 2, 3},
+			[]string{"one", "two", "three"})
+	})
+
+	t.Run("insert before non-existent key in empty map", func(t *testing.T) {
+		om := New[int, string]()
+
+		om.InsertBefore(99, 1, "one")
+
+		assertOrderedPairsEqual(t, om,
+			[]int{1},
+			[]string{"one"})
+	})
+
+	t.Run("insert existing key before another key", func(t *testing.T) {
+		om := New[int, string]()
+		om.Set(1, "one")
+		om.Set(2, "two")
+		om.Set(3, "three")
+
+		om.InsertBefore(2, 3, "three_updated")
+
+		assertOrderedPairsEqual(t, om,
+			[]int{1, 3, 2},
+			[]string{"one", "three_updated", "two"})
+	})
+}
+
+func TestReplace(t *testing.T) {
+	t.Run("replace existing key with new key", func(t *testing.T) {
+		om := New[int, string]()
+		om.Set(1, "one")
+		om.Set(2, "two")
+		om.Set(3, "three")
+
+		om.Replace(2, 5, "five")
+
+		assertOrderedPairsEqual(t, om,
+			[]int{1, 5, 3},
+			[]string{"one", "five", "three"})
+	})
+
+	t.Run("replace first key", func(t *testing.T) {
+		om := New[int, string]()
+		om.Set(1, "one")
+		om.Set(2, "two")
+
+		om.Replace(1, 3, "three")
+
+		assertOrderedPairsEqual(t, om,
+			[]int{3, 2},
+			[]string{"three", "two"})
+	})
+
+	t.Run("replace last key", func(t *testing.T) {
+		om := New[int, string]()
+		om.Set(1, "one")
+		om.Set(2, "two")
+
+		om.Replace(2, 3, "three")
+
+		assertOrderedPairsEqual(t, om,
+			[]int{1, 3},
+			[]string{"one", "three"})
+	})
+
+	t.Run("replace with existing key", func(t *testing.T) {
+		om := New[int, string]()
+		om.Set(1, "one")
+		om.Set(2, "two")
+		om.Set(3, "three")
+
+		om.Replace(2, 3, "three_updated")
+
+		assertOrderedPairsEqual(t, om,
+			[]int{1, 3},
+			[]string{"one", "three_updated"})
+	})
+
+	t.Run("replace non-existent key acts as Set", func(t *testing.T) {
+		om := New[int, string]()
+		om.Set(1, "one")
+		om.Set(2, "two")
+
+		om.Replace(99, 3, "three")
+
+		assertOrderedPairsEqual(t, om,
+			[]int{1, 2, 3},
+			[]string{"one", "two", "three"})
+	})
+
+	t.Run("replace non-existent key in empty map", func(t *testing.T) {
+		om := New[int, string]()
+
+		om.Replace(99, 1, "one")
+
+		assertOrderedPairsEqual(t, om,
+			[]int{1},
+			[]string{"one"})
+	})
+
+	t.Run("replace with same key but different value", func(t *testing.T) {
+		om := New[int, string]()
+		om.Set(1, "one")
+		om.Set(2, "two")
+		om.Set(3, "three")
+
+		om.Replace(2, 2, "two_updated")
+
+		assertOrderedPairsEqual(t, om,
+			[]int{1, 2, 3},
+			[]string{"one", "two_updated", "three"})
+	})
+
+	t.Run("replace in single element map", func(t *testing.T) {
+		om := New[int, string]()
+		om.Set(1, "one")
+
+		om.Replace(1, 2, "two")
+
+		assertOrderedPairsEqual(t, om,
+			[]int{2},
+			[]string{"two"})
+	})
 }
