@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/wk8/go-ordered-map/v2"
+	orderedmap "github.com/PrismAIO/go-ordered-map"
 )
 
 func Example() {
