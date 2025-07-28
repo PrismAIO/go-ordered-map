@@ -26,6 +26,10 @@ type OrderedMap[K comparable, V any] struct {
 	disableHTMLEscape bool
 }
 
+func (om *OrderedMap[K, V]) DisableHTMLEscape() {
+	om.disableHTMLEscape = true
+}
+
 type initConfig[K comparable, V any] struct {
 	capacity          int
 	initialData       []Pair[K, V]
