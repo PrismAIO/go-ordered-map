@@ -441,25 +441,29 @@ func (om *OrderedMap[K, V]) InsertBefore(indexKey, key K, value V) {
 
 // Replace replaces the desired key and value in order at the same index as the index key.
 // If the index key does not exist, it will act as the Set function.
-func (om *OrderedMap[K, V]) Replace(indexKey, key K, value V) {
-	if indexKey == key {
-		om.Set(key, value)
+func (om *OrderedMap[K, V]) Replace(oldKey, newKey K, value V) {
+	if oldKey == newKey {
+		om.Set(newKey, value)
 		return
 	}
 
-	replacePair, present := om.pairs[indexKey]
+	pair, present := om.pairs[oldKey]
 	if !present {
-		om.Set(key, value)
+		om.Set(newKey, value)
 		return
 	}
 
-	if existingPair, exists := om.pairs[key]; exists {
-		om.list.Remove(existingPair.element)
+	// ? remove the pair with the new key if it exists - must guarantee single pair per key
+	if pairWithNewKey, exists := om.pairs[newKey]; exists {
+		om.list.Remove(pairWithNewKey.element)
+		delete(om.pairs, newKey)
 	}
 
-	newPair := &Pair[K, V]{Key: key, Value: value}
-	newPair.element = om.list.Replace(newPair, replacePair.element)
-	om.pairs[key] = newPair
-
-	delete(om.pairs, indexKey)
+	// ? replace in place to guarantee iterator stability
+	pair.Key = newKey
+	pair.Value = value
+	pair.element = om.list.Replace(&Pair[K, V]{Key: newKey, Value: value}, pair.element)
+	pair.element.Value.element = pair.element
+	om.pairs[newKey] = pair
+	delete(om.pairs, oldKey)
 }

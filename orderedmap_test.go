@@ -760,3 +760,577 @@ func TestReplace(t *testing.T) {
 			[]string{"two"})
 	})
 }
+
+func TestReplaceWhileIterating(t *testing.T) {
+	t.Run("replace during FromOldest iteration", func(t *testing.T) {
+		om := New[int, string]()
+		om.Set(1, "one")
+		om.Set(2, "two")
+		om.Set(3, "three")
+		om.Set(4, "four")
+		om.Set(5, "five")
+
+		var visitedKeys []int
+		var visitedValues []string
+
+		for k, v := range om.FromOldest() {
+			visitedKeys = append(visitedKeys, k)
+			visitedValues = append(visitedValues, v)
+
+			// Replace the middle element during iteration
+			if k == 3 {
+				om.Replace(3, 6, "six")
+			}
+		}
+
+		// Should visit all elements - the replaced element shows original key/value during iteration
+		// because the iterator captured it before the replacement
+		expectedKeys := []int{1, 2, 3, 4, 5}
+		expectedValues := []string{"one", "two", "three", "four", "five"}
+
+		assert.Equal(t, expectedKeys, visitedKeys, "iteration should visit all elements without breaking")
+		assert.Equal(t, expectedValues, visitedValues, "iteration should show captured values at yield time")
+
+		// Verify final state of the map shows the replacement
+		assertOrderedPairsEqual(t, om,
+			[]int{1, 2, 6, 4, 5},
+			[]string{"one", "two", "six", "four", "five"})
+	})
+
+	t.Run("replace during FromNewest iteration", func(t *testing.T) {
+		om := New[int, string]()
+		om.Set(1, "one")
+		om.Set(2, "two")
+		om.Set(3, "three")
+		om.Set(4, "four")
+		om.Set(5, "five")
+
+		var visitedKeys []int
+		var visitedValues []string
+
+		for k, v := range om.FromNewest() {
+			visitedKeys = append(visitedKeys, k)
+			visitedValues = append(visitedValues, v)
+
+			// Replace the middle element during iteration
+			if k == 3 {
+				om.Replace(3, 7, "seven")
+			}
+		}
+
+		// Should visit all elements in reverse order, showing original values during iteration
+		expectedKeys := []int{5, 4, 3, 2, 1}
+		expectedValues := []string{"five", "four", "three", "two", "one"}
+
+		assert.Equal(t, expectedKeys, visitedKeys, "iteration should visit all elements without breaking")
+		assert.Equal(t, expectedValues, visitedValues, "iteration should show captured values at yield time")
+
+		// Verify final state of the map shows the replacement
+		assertOrderedPairsEqual(t, om,
+			[]int{1, 2, 7, 4, 5},
+			[]string{"one", "two", "seven", "four", "five"})
+	})
+
+	t.Run("replace first element during FromOldest iteration", func(t *testing.T) {
+		om := New[int, string]()
+		om.Set(1, "one")
+		om.Set(2, "two")
+		om.Set(3, "three")
+
+		var visitedKeys []int
+		var visitedValues []string
+
+		for k, v := range om.FromOldest() {
+			visitedKeys = append(visitedKeys, k)
+			visitedValues = append(visitedValues, v)
+
+			// Replace the first element during iteration
+			if k == 1 {
+				om.Replace(1, 10, "ten")
+			}
+		}
+
+		// Should visit all elements, showing original first element during iteration
+		expectedKeys := []int{1, 2, 3}
+		expectedValues := []string{"one", "two", "three"}
+
+		assert.Equal(t, expectedKeys, visitedKeys, "iteration should visit all elements without breaking")
+		assert.Equal(t, expectedValues, visitedValues, "iteration should show captured values at yield time")
+
+		// Verify final state shows the replacement
+		assertOrderedPairsEqual(t, om,
+			[]int{10, 2, 3},
+			[]string{"ten", "two", "three"})
+	})
+
+	t.Run("replace last element during FromNewest iteration", func(t *testing.T) {
+		om := New[int, string]()
+		om.Set(1, "one")
+		om.Set(2, "two")
+		om.Set(3, "three")
+
+		var visitedKeys []int
+		var visitedValues []string
+
+		for k, v := range om.FromNewest() {
+			visitedKeys = append(visitedKeys, k)
+			visitedValues = append(visitedValues, v)
+
+			// Replace the last element (first in newest iteration) during iteration
+			if k == 3 {
+				om.Replace(3, 30, "thirty")
+			}
+		}
+
+		// Should visit all elements, showing original last element during iteration
+		expectedKeys := []int{3, 2, 1}
+		expectedValues := []string{"three", "two", "one"}
+
+		assert.Equal(t, expectedKeys, visitedKeys, "iteration should visit all elements without breaking")
+		assert.Equal(t, expectedValues, visitedValues, "iteration should show captured values at yield time")
+
+		// Verify final state shows the replacement
+		assertOrderedPairsEqual(t, om,
+			[]int{1, 2, 30},
+			[]string{"one", "two", "thirty"})
+	})
+
+	t.Run("replace with existing key during iteration", func(t *testing.T) {
+		om := New[int, string]()
+		om.Set(1, "one")
+		om.Set(2, "two")
+		om.Set(3, "three")
+		om.Set(4, "four")
+		om.Set(5, "five")
+
+		var visitedKeys []int
+		var visitedValues []string
+
+		for k, v := range om.FromOldest() {
+			visitedKeys = append(visitedKeys, k)
+			visitedValues = append(visitedValues, v)
+
+			// Replace element 2 with key 4 (which already exists) - should remove original 4
+			if k == 2 {
+				om.Replace(2, 4, "new_four")
+			}
+		}
+
+		// Should visit all original elements during iteration (captured at yield time)
+		// The key 4 should only appear once since original element 4 gets removed
+		expectedKeys := []int{1, 2, 3, 5}
+		expectedValues := []string{"one", "two", "three", "five"}
+
+		assert.Equal(t, expectedKeys, visitedKeys, "iteration should visit all elements without skipping")
+		assert.Equal(t, expectedValues, visitedValues, "iteration should show captured values at yield time")
+
+		// Final state should have the replaced element in position of original key 2, and original key 4 removed
+		assertOrderedPairsEqual(t, om,
+			[]int{1, 4, 3, 5},
+			[]string{"one", "new_four", "three", "five"})
+	})
+
+	t.Run("multiple replacements during iteration", func(t *testing.T) {
+		om := New[int, string]()
+		om.Set(1, "one")
+		om.Set(2, "two")
+		om.Set(3, "three")
+		om.Set(4, "four")
+		om.Set(5, "five")
+
+		var visitedKeys []int
+		var visitedValues []string
+
+		for k, v := range om.FromOldest() {
+			visitedKeys = append(visitedKeys, k)
+			visitedValues = append(visitedValues, v)
+
+			// Replace multiple elements during iteration
+			if k == 2 {
+				om.Replace(2, 20, "twenty")
+			}
+			if k == 4 {
+				om.Replace(4, 40, "forty")
+			}
+		}
+
+		// Should visit all original elements during iteration
+		expectedKeys := []int{1, 2, 3, 4, 5}
+		expectedValues := []string{"one", "two", "three", "four", "five"}
+
+		assert.Equal(t, expectedKeys, visitedKeys, "iteration should visit all elements without breaking")
+		assert.Equal(t, expectedValues, visitedValues, "iteration should show captured values at yield time")
+
+		// Final state should show both replacements
+		assertOrderedPairsEqual(t, om,
+			[]int{1, 20, 3, 40, 5},
+			[]string{"one", "twenty", "three", "forty", "five"})
+	})
+
+	t.Run("iteration continues after replacement doesn't break linked list", func(t *testing.T) {
+		// This is the most important test - ensuring the linked list structure remains intact
+		om := New[int, string]()
+		for i := 1; i <= 10; i++ {
+			om.Set(i, fmt.Sprintf("value_%d", i))
+		}
+
+		visitedCount := 0
+		for k, v := range om.FromOldest() {
+			visitedCount++
+			// Replace every other element during iteration
+			if k%2 == 0 {
+				om.Replace(k, k+100, fmt.Sprintf("replaced_%d", k+100))
+			}
+			// Verify we can still access the element
+			assert.Equal(t, fmt.Sprintf("value_%d", k), v, "should see original value during iteration")
+		}
+
+		// Should visit all 10 elements despite replacements
+		assert.Equal(t, 10, visitedCount, "should visit all elements despite replacements")
+
+		// Verify the map still has correct length and structure
+		assert.Equal(t, 10, om.Len(), "map should still have 10 elements")
+
+		// Verify we can still iterate through the entire modified map
+		finalVisitedCount := 0
+		for range om.FromOldest() {
+			finalVisitedCount++
+		}
+		assert.Equal(t, 10, finalVisitedCount, "should be able to iterate through all elements after replacements")
+	})
+}
+
+func TestInsertWhileIterating(t *testing.T) {
+	t.Run("InsertAfter during FromOldest iteration", func(t *testing.T) {
+		om := New[int, string]()
+		om.Set(1, "one")
+		om.Set(2, "two")
+		om.Set(3, "three")
+		om.Set(4, "four")
+
+		var visitedKeys []int
+		var visitedValues []string
+
+		for k, v := range om.FromOldest() {
+			visitedKeys = append(visitedKeys, k)
+			visitedValues = append(visitedValues, v)
+
+			// Insert after element 2 during iteration
+			if k == 2 {
+				om.InsertAfter(2, 5, "five")
+			}
+		}
+
+		// Should visit original elements plus the inserted element since it's added after current position
+		expectedKeys := []int{1, 2, 5, 3, 4}
+		expectedValues := []string{"one", "two", "five", "three", "four"}
+
+		assert.Equal(t, expectedKeys, visitedKeys, "iteration should visit original elements plus inserted element")
+		assert.Equal(t, expectedValues, visitedValues, "iteration should include inserted element when positioned ahead")
+
+		// Verify final state shows the insertion
+		assertOrderedPairsEqual(t, om,
+			[]int{1, 2, 5, 3, 4},
+			[]string{"one", "two", "five", "three", "four"})
+	})
+
+	t.Run("InsertAfter during FromNewest iteration", func(t *testing.T) {
+		om := New[int, string]()
+		om.Set(1, "one")
+		om.Set(2, "two")
+		om.Set(3, "three")
+		om.Set(4, "four")
+
+		var visitedKeys []int
+		var visitedValues []string
+
+		for k, v := range om.FromNewest() {
+			visitedKeys = append(visitedKeys, k)
+			visitedValues = append(visitedValues, v)
+
+			// Insert after element 3 during iteration
+			if k == 3 {
+				om.InsertAfter(3, 6, "six")
+			}
+		}
+
+		// Should visit all original elements in reverse order - inserted element is after element 3
+		// but comes before elements 2,1 in reverse iteration, so it won't be visited
+		expectedKeys := []int{4, 3, 2, 1}
+		expectedValues := []string{"four", "three", "two", "one"}
+
+		assert.Equal(t, expectedKeys, visitedKeys, "iteration should visit original elements without visiting inserted element")
+		assert.Equal(t, expectedValues, visitedValues, "iteration should show original values during iteration")
+
+		// Verify final state shows the insertion
+		assertOrderedPairsEqual(t, om,
+			[]int{1, 2, 3, 6, 4},
+			[]string{"one", "two", "three", "six", "four"})
+	})
+
+	t.Run("InsertBefore during FromOldest iteration", func(t *testing.T) {
+		om := New[int, string]()
+		om.Set(1, "one")
+		om.Set(2, "two")
+		om.Set(3, "three")
+		om.Set(4, "four")
+
+		var visitedKeys []int
+		var visitedValues []string
+
+		for k, v := range om.FromOldest() {
+			visitedKeys = append(visitedKeys, k)
+			visitedValues = append(visitedValues, v)
+
+			// Insert before element 3 during iteration
+			if k == 3 {
+				om.InsertBefore(3, 7, "seven")
+			}
+		}
+
+		// Should visit all original elements - inserted element comes before element 3
+		// but is added after we've already passed that position
+		expectedKeys := []int{1, 2, 3, 4}
+		expectedValues := []string{"one", "two", "three", "four"}
+
+		assert.Equal(t, expectedKeys, visitedKeys, "iteration should visit all original elements")
+		assert.Equal(t, expectedValues, visitedValues, "iteration should show original values during iteration")
+
+		// Verify final state shows the insertion
+		assertOrderedPairsEqual(t, om,
+			[]int{1, 2, 7, 3, 4},
+			[]string{"one", "two", "seven", "three", "four"})
+	})
+
+	t.Run("InsertBefore during FromNewest iteration", func(t *testing.T) {
+		om := New[int, string]()
+		om.Set(1, "one")
+		om.Set(2, "two")
+		om.Set(3, "three")
+		om.Set(4, "four")
+
+		var visitedKeys []int
+		var visitedValues []string
+
+		for k, v := range om.FromNewest() {
+			visitedKeys = append(visitedKeys, k)
+			visitedValues = append(visitedValues, v)
+
+			// Insert before element 2 during iteration
+			if k == 2 {
+				om.InsertBefore(2, 8, "eight")
+			}
+		}
+
+		// Should visit original elements plus the inserted element since it's placed before element 2
+		// but after element 1 in the list, so it will be visited before element 1 in reverse iteration
+		expectedKeys := []int{4, 3, 2, 8, 1}
+		expectedValues := []string{"four", "three", "two", "eight", "one"}
+
+		assert.Equal(t, expectedKeys, visitedKeys, "iteration should visit original elements plus inserted element")
+		assert.Equal(t, expectedValues, visitedValues, "iteration should include inserted element when positioned ahead")
+
+		// Verify final state shows the insertion
+		assertOrderedPairsEqual(t, om,
+			[]int{1, 8, 2, 3, 4},
+			[]string{"one", "eight", "two", "three", "four"})
+	})
+
+	t.Run("Set new key during FromOldest iteration", func(t *testing.T) {
+		om := New[int, string]()
+		om.Set(1, "one")
+		om.Set(2, "two")
+		om.Set(3, "three")
+
+		var visitedKeys []int
+		var visitedValues []string
+
+		for k, v := range om.FromOldest() {
+			visitedKeys = append(visitedKeys, k)
+			visitedValues = append(visitedValues, v)
+
+			// Set a new key during iteration - should append to end and be visited
+			if k == 2 {
+				om.Set(9, "nine")
+			}
+		}
+
+		// Should visit original elements plus the new element since Set appends to end
+		expectedKeys := []int{1, 2, 3, 9}
+		expectedValues := []string{"one", "two", "three", "nine"}
+
+		assert.Equal(t, expectedKeys, visitedKeys, "iteration should visit original elements plus new element")
+		assert.Equal(t, expectedValues, visitedValues, "iteration should include new element added to end")
+
+		// Verify final state shows the new element at the end
+		assertOrderedPairsEqual(t, om,
+			[]int{1, 2, 3, 9},
+			[]string{"one", "two", "three", "nine"})
+	})
+
+	t.Run("insert existing key during iteration", func(t *testing.T) {
+		om := New[int, string]()
+		om.Set(1, "one")
+		om.Set(2, "two")
+		om.Set(3, "three")
+		om.Set(4, "four")
+		om.Set(5, "five")
+
+		var visitedKeys []int
+		var visitedValues []string
+
+		for k, v := range om.FromOldest() {
+			visitedKeys = append(visitedKeys, k)
+			visitedValues = append(visitedValues, v)
+
+			// Insert existing key 4 after key 1 (should move key 4)
+			if k == 1 {
+				om.InsertAfter(1, 4, "four_moved")
+			}
+		}
+
+		// Should visit element 1, then moved element 4, then remaining elements
+		// Key 4 gets moved to position after 1, so it's visited in its new position
+		expectedKeys := []int{1, 4, 2, 3, 5}
+		expectedValues := []string{"one", "four_moved", "two", "three", "five"}
+
+		assert.Equal(t, expectedKeys, visitedKeys, "iteration should visit moved element in new position")
+		assert.Equal(t, expectedValues, visitedValues, "iteration should show updated value for moved element")
+
+		// Verify final state shows the moved element
+		assertOrderedPairsEqual(t, om,
+			[]int{1, 4, 2, 3, 5},
+			[]string{"one", "four_moved", "two", "three", "five"})
+	})
+
+	t.Run("multiple insertions during iteration", func(t *testing.T) {
+		om := New[int, string]()
+		om.Set(1, "one")
+		om.Set(2, "two")
+		om.Set(3, "three")
+		om.Set(4, "four")
+		om.Set(5, "five")
+
+		var visitedKeys []int
+		var visitedValues []string
+
+		for k, v := range om.FromOldest() {
+			visitedKeys = append(visitedKeys, k)
+			visitedValues = append(visitedValues, v)
+
+			// Multiple insertions during iteration
+			if k == 1 {
+				om.InsertAfter(1, 10, "ten")
+			}
+			if k == 3 {
+				om.InsertBefore(3, 30, "thirty")
+			}
+			if k == 5 {
+				om.Set(50, "fifty")
+			}
+		}
+
+		// Should visit elements including inserted ones that are positioned ahead
+		expectedKeys := []int{1, 10, 2, 3, 4, 5, 50}
+		expectedValues := []string{"one", "ten", "two", "three", "four", "five", "fifty"}
+
+		assert.Equal(t, expectedKeys, visitedKeys, "iteration should visit original and inserted elements")
+		assert.Equal(t, expectedValues, visitedValues, "iteration should show all values including inserted ones")
+
+		// Verify final state shows all insertions
+		assertOrderedPairsEqual(t, om,
+			[]int{1, 10, 2, 30, 3, 4, 5, 50},
+			[]string{"one", "ten", "two", "thirty", "three", "four", "five", "fifty"})
+	})
+
+	t.Run("insertions don't break linked list structure", func(t *testing.T) {
+		// This is the most important test - ensuring the linked list structure remains intact
+		om := New[int, string]()
+		for i := 1; i <= 8; i++ {
+			om.Set(i, fmt.Sprintf("value_%d", i))
+		}
+
+		visitedCount := 0
+		insertedElements := make(map[int]bool)
+
+		for k, v := range om.FromOldest() {
+			visitedCount++
+
+			// Insert elements at various positions during iteration
+			if k == 2 {
+				om.InsertAfter(2, 20, "twenty")
+				insertedElements[20] = true
+			}
+			if k == 4 {
+				om.InsertBefore(4, 40, "forty")
+				insertedElements[40] = true
+			}
+			if k == 6 {
+				om.Set(60, "sixty")
+				insertedElements[60] = true
+			}
+			if k == 8 {
+				om.InsertAfter(8, 80, "eighty")
+				insertedElements[80] = true
+			}
+
+			// Verify we see the expected value - original for original elements, new for inserted elements
+			if insertedElements[k] {
+				// This is an inserted element, don't check the value format
+			} else {
+				// This is an original element
+				assert.Equal(t, fmt.Sprintf("value_%d", k), v, "should see original value for original element")
+			}
+		}
+
+		// Should visit more than 8 elements due to insertions that get visited
+		assert.Greater(t, visitedCount, 8, "should visit more than original elements due to insertions")
+
+		// Verify the map has the correct final length (8 original + 4 inserted = 12)
+		assert.Equal(t, 12, om.Len(), "map should have 12 elements after insertions")
+
+		// Verify we can still iterate through the entire modified map
+		finalVisitedCount := 0
+		for range om.FromOldest() {
+			finalVisitedCount++
+		}
+		assert.Equal(t, 12, finalVisitedCount, "should be able to iterate through all 12 elements after insertions")
+
+		// Verify we can iterate backwards too
+		backwardVisitedCount := 0
+		for range om.FromNewest() {
+			backwardVisitedCount++
+		}
+		assert.Equal(t, 12, backwardVisitedCount, "should be able to iterate backwards through all 12 elements")
+	})
+
+	t.Run("insert at beginning and end during iteration", func(t *testing.T) {
+		om := New[int, string]()
+		om.Set(2, "two")
+		om.Set(3, "three")
+		om.Set(4, "four")
+
+		var visitedKeys []int
+
+		for k := range om.FromOldest() {
+			visitedKeys = append(visitedKeys, k)
+
+			// Insert before the first element and after the last element
+			if k == 2 {
+				om.InsertBefore(2, 1, "one") // Insert at beginning - won't be visited
+			}
+			if k == 4 {
+				om.InsertAfter(4, 5, "five") // Insert at end - will be visited
+			}
+		}
+
+		// Should visit original elements plus the element inserted at the end
+		expectedKeys := []int{2, 3, 4, 5}
+		assert.Equal(t, expectedKeys, visitedKeys, "iteration should visit original elements plus end insertion")
+
+		// Verify final state shows insertions at beginning and end
+		assertOrderedPairsEqual(t, om,
+			[]int{1, 2, 3, 4, 5},
+			[]string{"one", "two", "three", "four", "five"})
+	})
+}
