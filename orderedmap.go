@@ -142,6 +142,7 @@ func (om *OrderedMap[K, V]) Set(key K, value V) (val V, present bool) {
 	if pair, present := om.pairs[key]; present {
 		oldValue := pair.Value
 		pair.Value = value
+		pair.element.Value.Value = value
 		return oldValue, true
 	}
 
